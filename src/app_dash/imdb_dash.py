@@ -81,25 +81,7 @@ className={
     "tab_class":"bg-blue-300 border-t-0 p-3 m-2 font-semibold border-0",
     "tab_selected":"bg-white p-3 m-2 font-semibold border-0",
 }
-styles={
-        "tab_class":{"border":"none",
-                 "background":"#3b82f6",
-                 "color":"#f9fafb",
-                 "font-weight":"600","padding":"1em",
-                 "margin":"1em",
-                 "border-radius":"0.5em",
-                 "max-width":"100%",
-                 "box-shadow":"0 16px 26px -10px rgba(63,106,216,.56), 0 4px 25px 0 rgba(0,0,0,.12), 0 8px 10px -5px rgba(63,106,216,.2)"},
-    "tab_selected":{"border":"none",
-                    "max-width":"100%",
-                    "background":"#93c5fd",
-                    "padding":"1em",
-                    "margin":"1em",
-                    "border-radius":"0.5em","color":"#f9fafb","font-weight":"600",
-                     "box-shadow":"0 16px 26px -10px rgba(63,106,216,.56), 0 4px 25px 0 rgba(0,0,0,.12), 0 8px 10px -5px rgba(63,106,216,.2)"}
 
-
-}
 password = os.getenv("password")
 user = os.getenv("user")
 host = os.getenv("host")
@@ -134,10 +116,73 @@ df_producer=df_producer.astype({"decade":"int16","age":"float","nb_film":"float"
 connection.get_sql_engine().dispose()
 
 
+def filter():
+            
+    content_div=html.Div(id="filter",children=[],className="flex flex-col p-2 m-2 xl:grid xl:grid-cols-12 gap-4")
+    liste_content={
+        "Genre":{
+            "id":"genre",
+            "option":[{"label":genre,"value":genre} for genre in sorted(genres)],
+            "multi":True,
+            "value":None
+        },
+        "note":{
+            "id":"note",
+            "option":[{"label":note,"value":note} for note in range(1,11)],
+            "multi":True,
+            "value":None
+        },
+        "Acteur/Actrice":{
+            "id":"actor",
+            "option":[{"label":row["primaryName"],"value":row["Nconst"]} for index,row in df_actor.loc[:,["Nconst","primaryName"]].drop_duplicates(subset="Nconst",keep="last").sort_values(by="primaryName").iterrows()],
+            "multi":True,
+            "value":None
+        },
+        "Producteur":
+        {
+            "id":"producer",
+            "option":[{"label":row["primaryName"],"value":row["Nconst"]} for index,row in df_producer.loc[:,["Nconst","primaryName"]].drop_duplicates(subset="Nconst",keep="last").sort_values(by="primaryName").iterrows()],
+            "multi":True,
+            "value":None
+        },
+        "Décennie":{
+            "id":"decade",
+            "option":[{"label":decade,"value":decade} for decade in sorted(df.decade.unique())],
+            "multi":True,
+            "value":None
+        },
+        "Choix de visualisation":{
+            "id":"see_value",
+            "option":[{"label":val,"value":val} for val in sorted(["genre","decade"])],
+            "multi":True,
+            "value":"genre"
+
+        }
+    }
+
+    for name,value in liste_content.items():
+         content_div.children.append(
+             html.Div(
+                 children=[
+                        html.H3(children=name,className="font-bold text-xl p-2 m-2 text-gray-700"),
+                        dcc.Dropdown(
+                            id=value.get("id"),
+                            options=value.get("option"),
+                            multi=value.get("multi"),
+                            value=value.get("value"),
+                            className="p-2 m-2 "
+                        )
+                 ],className="bg-white col-span-4 rounded-lg")
+             )
+    return content_div
+        
+
+
+
         
 def get_filter(df,genre,decade,actor=None,producer=None,averagerating=None,numvotes=None):
     dict_filter={ "genre":genre,"decade":decade,"averagerating":averagerating}
-    df_copy=df.copy().dropna()
+    df_copy=df.copy()
     for col,value in dict_filter.items():
         if value is not None and len(value) >0:
         
@@ -167,7 +212,7 @@ def get_filter(df,genre,decade,actor=None,producer=None,averagerating=None,numvo
 
 @app.callback(Output("key_number","children"),[Input("genre","value"),Input("decade","value"),Input("actor","value"),Input("producer","value"),Input("note","value")])
 def key_number(genre,decade,actor,producer,note):
-    df_=get_filter(df,genre,decade,actor,producer,averagerating=note).dropna()
+    df_=get_filter(df,genre,decade,actor,producer,averagerating=note)
 
     nb_ = len(df_)
     runtime = df_.runtimeminutes.mean()
@@ -190,35 +235,32 @@ def key_number(genre,decade,actor,producer,note):
         actor=""
         age=''
 
+    content_div = html.Div(children=[],className="flex flex-col xl:grid xl:grid-cols-12 gap-6 p-2 m-2")
+    dict_content_div={
+        "Nombre de films":'{:,.0f}'.format(nb_),
+        f"Note moyenne {actor}":round( note_mean,2),
+        "Temps moyen":round(runtime),
+        "Age":age
+    }
 
+    for title,value in dict_content_div.items():
+        print(title,value)
+        content_div.children.append(
+            html.Div(
+                children=[
+                    html.H4(title,className="font-bold p-2 m-2 text-2xl text-gray-700"),
+                    html.P(value,className="font-medium p-2 m-2 text-xl text-gray-700")
+                ],className="col-span-3 bg-gray-50 rounded-lg flex flex-row  justify-center items-center"
+            )
+        )
     
-    return html.Div(id="",children=[
-        html.Div(children=[
-            html.H3("Nombre de films"),
-            html.P('{:,.0f}'.format(nb_)),
-        ],className="bg-white p-3 m-2 text-2xl font-semibold shadow-lg rounded-lg w-full xl:w-1/4 "),
-        html.Div(
-        children=[
-         html.H3(f"Note moyenne {actor}"),
-          html.P(round( note_mean,2)),
-        ],className="bg-white p-3 m-2 text-2xl font-semibold shadow-lg rounded-lg w-full xl:w-1/4"),
-        html.Div(
-        children=[
-         html.H3("Temps moyen"),
-          html.P(round(runtime))
-        ],className="bg-white p-3 m-2 text-2xl font-semibold shadow-lg rounded-lg w-full xl:w-1/4"),
-        html.Div(
-        children=[
-         html.H3("Age "),
-          html.P((age)),
-        ],className="bg-white p-3 m-2 text-2xl font-semibold shadow-lg rounded-lg w-full xl:w-1/4"),
+    return content_div
 
-      
-    ],className="p-3 m-2 flex flex-col xl:flex-row w-full justify-around")
 @app.callback(Output("count_movie","children"),[Input("genre","value"),
                                                 Input("decade","value"),Input("note","value"),Input("actor","value"),Input('producer',"value"),Input("see_value","value")])
 def get_count_movies(genre,decade,note,actor,producer,see_value):
     df_graph=get_filter(df,genre,decade,actor,producer,averagerating=note).sort_values(by="genre")
+
     if see_value == "genre":
         fig = px.histogram(data_frame =df_graph,x="genre",color_discrete_sequence=["#38bdf8"])
     else: 
@@ -243,7 +285,7 @@ def get_count_movies(genre,decade,note,actor,producer,see_value):
 @app.callback(Output("mean_note","children"),[Input("genre","value"),Input("decade","value"),Input("note","value"),Input("actor","value"),Input("producer","value"),Input("see_value","value")])
 def get_genre(genre,decade,note,actor,producer,see_value):
 
-    df_graph=get_filter(df,genre,decade,actor,producer,averagerating=note).dropna()
+    df_graph=get_filter(df,genre,decade,actor,producer,averagerating=note)
 
     if decade is not None and len(decade) >0:
         df_graph = df_graph.groupby(['decade','genre']).agg("mean",numeric_only=True).reset_index()
@@ -289,7 +331,7 @@ def get_genre(genre,decade,note,actor,producer,see_value):
 @app.callback(Output("get_time","children"),[Input("genre","value"),Input("decade","value"),Input("note","value"),Input("actor","value"),Input("producer","value"),Input("see_value","value")])
 def get_time_genre(genre,decade,note,actor,producer,see_value):
 
-    df_graph = get_filter(df,genre,decade,actor,producer,averagerating=note).dropna()
+    df_graph = get_filter(df,genre,decade,actor,producer,averagerating=note)
 
     if decade is not None and len(decade) >0:
         df_graph = df_graph.groupby(['decade','genre']).agg("mean",numeric_only=True).reset_index()
@@ -327,7 +369,7 @@ def get_time_genre(genre,decade,note,actor,producer,see_value):
 @app.callback(Output("age_mean","children"),[Input("genre","value"),Input("decade","value"),Input("note","value"),Input("actor","value"),Input("see_value","value")])
 def get_age_movie(genre,decade,note,actor,see_value):
     df_actor_copy = get_filter(df_actor,genre,decade)
-    df_=get_filter(df,genre,decade,averagerating=note).dropna()
+    df_=get_filter(df,genre,decade,averagerating=note)
     df_=df_.loc[:,['tconst','genre',"decade","startyear","averagerating"]]
     df_actor_copy=df_actor_copy.loc[:,["tconst","nb_film","primaryName","sexe","age","age_in_movie","film_per_decade"]]
     df_copy=df_.merge(df_actor_copy,how="inner",left_on="tconst",right_on="tconst")
@@ -372,7 +414,7 @@ def get_age_movie(genre,decade,note,actor,see_value):
 
 @app.callback(Output("movie_per","children"),[Input("genre","value"),Input("decade","value"),Input("note","value"),Input("actor","value"),Input("producer","value")])
 def film_per_act(genre,decade,note,actor,producer):
-    df_ = get_filter(df,genre,decade,actor,producer,averagerating=note).dropna()
+    df_ = get_filter(df,genre,decade,actor,producer,averagerating=note)
     if actor is  None or len(actor) == 0:
         df_=df_.merge(df_actor.loc[:,["tconst","primaryName","sexe"]],how="inner",left_on="tconst",right_on="tconst")
    
@@ -396,17 +438,21 @@ def film_per_act(genre,decade,note,actor,producer):
 
 @app.callback(Output("table_movie","children"),[Input("genre","value"),Input("note","value"),Input("actor","value"),Input("producer","value"),Input("decade","value")])
 def get_table(genre,note,actor,producer,decade):
-    cols =["tconst","primarytitle","startyear","decade","runtimeminutes","genres","averagerating","numvotes"]    
-    df_ = get_filter(df,genre,decade,actor,producer,averagerating=note).dropna()
-    
+    cols =["recommandation","primarytitle","startyear","decade","runtimeminutes","genres","averagerating","numvotes"]    
+    df_ = get_filter(df,genre,decade,actor,producer,averagerating=note)
+       # return f'<a href="https://crossflix.kevinlamarque.fr/movie/{tconst}" target="_blank">Avoir une recommandation</a>'
+    df_['tconst'] = df_['tconst'].apply(lambda x:f"[Avoir une recommandation](https://crossflix.kevinlamarque.fr/movie/{x})")
     df_=df_.sort_values(by=["decade","numvotes","averagerating"],ascending=[False,False,False])
+    df_=df_.rename(columns={"tconst":"recommandation"})
     table =  dash_table.DataTable(
         id='table',
-        columns=[{'name': col, 'id': col} for col in cols],
+                columns=[{'name': col, 'id': col, 'type': 'text', 'presentation': 'markdown'} if col == 'recommandation'
+                 else {'name': col, 'id': col} for col in cols],
         data=df_.to_dict('records'),
         page_action='native',
         page_size=25,
         sort_action="native",
+
 
     style_cell={
     'color': 'black',
@@ -432,108 +478,22 @@ style_data={
     return table
 
 app.layout=html.Div([
-            html.Div(
-            children=[
-                html.H2(children="Exploitation de la base Imdb",className="p-3 m-2 text-3xl text-gray-800"),
-                html.Div(
-                    children=[
-                        html.P("Les données ont été filtrées pour se concentrer uniquement sur les films dont la traduction existe en Français."),
-                        html.P("Le type de données conservées conserve uniquement les type 'movie', les séries et le reste du contenu ne sont pas prise en compte."),
-                        html.P("Les films de plus de 5H sont exclus , pour éviter les extrêmes . Ceci afin de se concentrer sur les temps plus commun du cinéma où un film dépasse rarement 3H."),
-                        
 
-
-                    ]
-                )
-            ],className="bg-white rounded-2xl p-3 m-2 font-medium text-gray-800"
-        ),
-        html.Div(
-            id="filter",
-            children=[
-
-        html.Div(
-                children=[
-                    html.H3(children="Genre",className="p-3 m-2 text-xl font-semibold text-gray-800"),
-                    dcc.Dropdown(
-                        id="genre",
-                        options=[{"label":genre,"value":genre} for genre in sorted(genres)],
-                        multi=True,
-                        className="p-3 m-2 rounded-lg ",
-                    )
-                ],className="w-full xl: w-1/4"
-            ),
-                html.Div(
-                children=[
-                    html.H3(children="Note moyenne",className="p-3 m-2 text-xl font-semibold text-gray-800"),
-                    dcc.Dropdown(
-                        id="note",
-                        options=[{"label":note,"value":note} for note in range(1,11)],
-                        multi=True,
-                        className="p-3 m-2 rounded-lg ",
-                    )
-                ],className="w-full xl: w-1/4"
-            ),
-                    html.Div(
-                children=[
-                    html.H3(children="Acteur/Actrice",className="p-3 m-2 font-semibold text-xl text-gray-800"),
-                    dcc.Dropdown(
-                        id="actor",
-                        options=[{"label":row["primaryName"],"value":row["Nconst"]} for index,row in df_actor.loc[:,["Nconst","primaryName"]].drop_duplicates(subset="Nconst",keep="last").sort_values(by="primaryName").iterrows()],
-                        multi=True,
-                        className="p-3 m-2 rounded-lg ",
-                    )
-                ],className="w-full xl: w-1/4"
-            ),
-                html.Div(
-                children=[
-                    html.H3(children="Producteur",className="p-3 m-2 text-xl  font-semibold  text-gray-800"),
-                    dcc.Dropdown(
-                        id="producer",
-                        options=[{"label":row["primaryName"],"value":row["Nconst"]} for index,row in df_producer.loc[:,["Nconst","primaryName"]].drop_duplicates(subset="Nconst",keep="last").sort_values(by="primaryName").iterrows()],
-                        multi=True,
-                        className="p-3 m-2 rounded-lg ",
-                    )
-                ],className="w-full xl: w-1/4"
-            ),
-                    html.Div(
-                children=[
-                    html.H3(children="Décennie",className="p-3 m-2 text-xl font-semibold  text-gray-800"),
-                    dcc.Dropdown(
-                        id="decade",
-                        options=[{"label":decade,"value":decade} for decade in sorted(df.decade.unique())],
-                        multi=True,
-                        className="p-3 m-2 rounded-lg ",
-                    )
-                ],className="w-full xl: w-1/4"
-            ),
-                html.Div(
-                children=[
-                    html.H3(children="Choix de visualisation",className="p-3 m-2 font-semibold text-xl text-gray-800"),
-                    dcc.Dropdown(
-                        id="see_value",
-                        options=[{"label":val,"value":val} for val in sorted(["genre","decade"])],
-                        value="genre",
-                        className="p-3 m-2 rounded-lg ",
-                    )
-                ],className="w-full xl: w-1/4"
-            ),
-            ],className="p-3 my-10 flex flex-col xl:flex-row flex-nowrap w-full bg-white rounded-2xl"),
+        html.Div(id="filter",children=filter()),
     
         html.Div(id="key_number",children=[]),
         html.Div(id="graph",children=[
-            html.Div(id="count_movie",children=[],className=className.get("graph")),
-            html.Div(id="mean_note",children=[],className=className.get("graph")),
-            html.Div(id="get_time",children=[],className=className.get("graph")),
-        ],className="flex flex-col xl:flex-row flex-nowrap"),
+            html.Div(id="count_movie",children=[],className="col-span-4 p-5 bg-white rounded-lg"),
+            html.Div(id="mean_note",children=[],className="col-span-4 p-5 bg-white rounded-lg"),
+            html.Div(id="get_time",children=[],className="col-span-4 p-5 bg-white rounded-lg"),
+            html.Div(id="age_mean",children=[],className="col-span-6 p-5 bg-white rounded-lg"),
+            html.Div(id="movie_per",children=[],className="col-span-6 p-5 bg-white rounded-lg"),
+            html.Div(id='table_movie',children=[],className="col-span-12 p-5 bg-white rounded-lg"),
 
-        html.Div(id="graph_distrib",children=[
-            html.Div(id="age_mean",children=[],className=className.get("graph")),
-            html.Div(id="movie_per",children=[],className=className.get("graph"))
-
-        ],className="flex flex-col xl:flex-row flex-nowrap"),
+        ],className="flex flex-col xl:grid xl:grid-cols-12 gap-6 p-2 m-2 "),
 
 
 
-        html.Div(id='table_movie',children=[],className="bg-white p-3 m-2 rounded-2xl overflow-y-scroll")
+      
     
 ],className="bg-gray-800 h-screen m-0 p-5")
